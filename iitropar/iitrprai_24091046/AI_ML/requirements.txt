@@ -1,0 +1,30 @@
+# Core utilities
+os-sys        # built-in
+json          # built-in
+python-dateutil>=2.8.2   # for robust datetime handling
+
+# Data fetching & handling
+yfinance>=0.2.40
+pandas>=2.0.0
+numpy>=1.25.0
+
+# Technical analysis
+ta>=0.11.0    # Technical Analysis library for indicators
+
+# Model persistence
+joblib>=1.3.0
+
+# Visualization
+matplotlib>=3.8.0
+
+# Machine learning & metrics
+scikit-learn>=1.3.0
+
+# Deep learning (TensorFlow + Keras)
+tensorflow>=2.14.0
+
+# Hyperparameter optimization
+optuna>=3.4.0
+
+# Google Drive
+gdown

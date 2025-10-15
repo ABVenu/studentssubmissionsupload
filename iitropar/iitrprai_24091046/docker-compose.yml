@@ -1,0 +1,46 @@
+networks:
+  app-net:
+    driver: bridge
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: stock-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./AI_ML:/AI_ML
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MODEL_DIR=/AI_ML/models_store
+      - MODEL_FOLDER_URL=https://drive.google.com/drive/folders/1oqAbBsIjLBqTCGk01CA1WvXwszcY_eLu?usp=sharing
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health | grep 'ok' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 100s
+    networks:
+      - app-net
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: stock-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - REACT_APP_API_BASE_URL=http://127.0.0.1:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: npm start
+    networks:
+      - app-net

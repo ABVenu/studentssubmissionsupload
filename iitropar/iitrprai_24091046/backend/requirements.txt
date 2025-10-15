@@ -1,0 +1,13 @@
+# Web framework
+fastapi==0.110.2
+uvicorn[standard]==0.29.0
+
+# Data & ML
+pandas==2.2.2
+numpy==1.26.4
+joblib==1.4.2
+tensorflow==2.16.1
+scikit-learn==1.4.2
+
+# Google Drive download helper
+gdown==5.1.0
