@@ -1,0 +1,356 @@
+{
+  "name": "Stock Market Analysis",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -416,
+        -240
+      ],
+      "id": "1da8371f-8a4d-4cb9-a92f-fc791e9cab08",
+      "name": "When chat message received",
+      "webhookId": "01352fb8-cc7d-4316-a8f9-76aaca6cfe21"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a strict data extraction assistant.\n\nYour only task is to extract the NSE stock ticker symbol from the following user message.\n\n\nRespond with exactly one word: the ticker symbol matching the user input, in uppercase with `.NS` suffix.\n\nIf no valid ticker is found, respond with: NONE\n\nDo NOT provide explanations, extra text, or formatting. ONLY respond with the ticker or NONE.\n\nUser message: \"{{ $json.chatInput }}\"\n",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=import requests\nimport pandas as pd\n\n# Load full NSE ticker list dynamically\nurl = \"https://archives.nseindia.com/content/equities/EQUITY_L.csv\"\ndata = pd.read_csv(url)\n\n# Convert to a lookup set with .NS suffix\nVALID_TICKERS = {f\"{sym.upper()}.NS\" for sym in data['SYMBOL'].tolist()}\n\ndef extract_ticker(user_input: str) -> str:\n    words = user_input.upper().replace(\",\", \" \").split()\n    for word in words:\n        if word.endswith(\".NS\") and word in VALID_TICKERS:\n            return word\n        elif word in VALID_TICKERS:\n            return word\n    return \"NONE\"\n\n# Example usage\nprint(extract_ticker(\"I want to check RELIANCE\"))   # RELIANCE.NS\nprint(extract_ticker(\"Show me Tesla\"))              # NONE\n"
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        -160,
+        -240
+      ],
+      "id": "8cfe8982-662b-4f4c-850b-4d5f5d8a7079",
+      "name": "Extract Ticker from User Prompt"
+    },
+    {
+      "parameters": {
+        "url": "=https://query1.finance.yahoo.com/v8/finance/chart/{{$json[\"text\"]}}?range=5d&interval=1d\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        208,
+        -240
+      ],
+      "id": "d1d08fd8-35e3-4fb4-a409-d7de3132e152",
+      "name": "Yahoo Finance Data"
+    },
+    {
+      "parameters": {
+        "url": "https://newsapi.org/v2/everything",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.chart.result[0].meta.longName }}"
+            },
+            {
+              "name": "language",
+              "value": "en"
+            },
+            {
+              "name": "sortBy",
+              "value": "publishedAt"
+            },
+            {
+              "name": "apiKey",
+              "value": "=b07f985070194c3f8b61784c80711c4b"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        432,
+        -224
+      ],
+      "id": "7b6cef39-13ff-4485-9c25-1e6645bd2ca7",
+      "name": "Fetch News Headlines"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "==<b>{{ $('Yahoo Finance Data').item.json.chart.result[0].meta.longName || $('Yahoo Finance Data').item.json.chart.result[0].meta.symbol }}</b>\\n\n📊 Stock Market Data:\\n\n- Stock Name:{{ $('Yahoo Finance Data').item.json.chart.result[0].meta.longName || $('Yahoo Finance Data').item.json.chart.result[0].meta.symbol }}\n- Current Price: ₹{{ $('Yahoo Finance Data').item.json.chart.result[0].meta.regularMarketPrice }}\\n\n- Day High: ₹{{ $('Yahoo Finance Data').item.json.chart.result[0].meta.regularMarketDayHigh }}, Day Low: ₹{{ $('Yahoo Finance Data').item.json.chart.result[0].meta.regularMarketDayLow }}\\n\n- 52-Week High: ₹{{ $('Yahoo Finance Data').item.json.chart.result[0].meta.fiftyTwoWeekHigh }}, 52-Week Low: ₹{{ $('Yahoo Finance Data').item.json.chart.result[0].meta.fiftyTwoWeekLow }}\\n\n- Previous Close: ₹{{ $('Yahoo Finance Data').item.json.chart.result[0].meta.chartPreviousClose }}\\n\n- Trading Volume: {{ $('Yahoo Finance Data').item.json.chart.result[0].meta.regularMarketVolume }}\\n\n",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=You are a professional financial analyst AI assistant. Your role is to analyze stock market data and related news, then generate a clear and concise report in the specified format.\n\nAlways structure your response as follows:\n\nMarket Status:\n[Summarize key metrics such as current price, day high/low, 52-week high/low, previous close, and volume. Mention if price is up/down from previous close. Add brief comment on whether stock appears bullish, bearish, or consolidating.]\n\nNews Sentiment:\n[Summarize the 5 latest news headlines with company relevance. Group by tone (positive, negative, neutral) and mention any that may impact sentiment or price.]\n\nTechnical Signals & Trends:\n\nResistance level: ₹[value]\n\nSupport level: ₹[value]\n\nVolume trend: [high/low/neutral activity]\n\nNotable indicators: [e.g., moving average direction, breakout potential, gap-up/down]\n\nInsights & Recommendation:\n[Provide concise actionable insight. E.g., cautious bullish trend, neutral outlook with support holding, or early bearish signs. Mention any watch-outs or confirmations needed.]\n\nRisks & Caveats:\n[Highlight external risks (market sentiment, geopolitical, etc.) or internal company risks that might affect movement.]\n\nAlways write in professional, simple English suitable for a retail investor. Do not mention tools or templates used. Focus on clarity, brevity, and financial relevance."
+            }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        16,
+        96
+      ],
+      "id": "4e3f5be9-29f5-49d8-8941-95d54a231ec9",
+      "name": "Financial Analyst AI Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const newsData = items[0].json; \n\n// Confirm articles exist and slice safely\nconst limitedArticles = (newsData.articles && Array.isArray(newsData.articles)) ? newsData.articles.slice(0, 5) : [];\n\nreturn [\n  {\n    json: {\n      newsArticles: limitedArticles\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        0
+      ],
+      "id": "3c5a4741-c466-431e-9154-d88e65aa6f8c",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1dqI7NnJBPltSghF7PvYE8Kbb3bUgBMspo3wngUiUnqQ",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "text"
+          ],
+          "schema": [
+            {
+              "id": "text",
+              "displayName": "text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        352,
+        160
+      ],
+      "id": "66b82a10-9b84-4eb8-91f1-cb74c80cf669",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "znx6sjoweXjWzsqL",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        -304
+      ],
+      "id": "d0e14882-0d07-4f84-a0a7-df21864dfab9",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "lj37YF43CIs1wE2l",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -576,
+        48
+      ],
+      "id": "db36b0d4-def2-4d15-9c6c-e6a706de886c",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "TaLMX9VJedhTEDkN",
+          "name": "OpenRouter account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "866462528",
+        "text": "={{$json[\"text\"]}}\n",
+        "replyMarkup": "=none",
+        "forceReply": {},
+        "replyKeyboardOptions": {},
+        "replyKeyboardRemove": {},
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "=HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        336,
+        0
+      ],
+      "id": "f29f7193-db15-47bf-9bad-6edf16cc5a4f",
+      "name": "Send a text message",
+      "webhookId": "e0e4ed89-f71e-4322-8eac-57f8a318e6cf",
+      "credentials": {
+        "telegramApi": {
+          "id": "MIhNSkbnXOrGiPV5",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Extract Ticker from User Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Ticker from User Prompt": {
+      "main": [
+        [
+          {
+            "node": "Yahoo Finance Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Yahoo Finance Data": {
+      "main": [
+        [
+          {
+            "node": "Fetch News Headlines",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch News Headlines": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Financial Analyst AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Financial Analyst AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        []
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Extract Ticker from User Prompt",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Financial Analyst AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "39018ee7-0e2a-4ddb-a419-bd9e311e6801",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1d61e081ca631cad9fdf34e5708aea814be64828de76292033579fc1dd3fc941"
+  },
+  "id": "EtYa17BZ9OAy4RwY",
+  "tags": []
+}
